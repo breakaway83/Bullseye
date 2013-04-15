@@ -1,6 +1,8 @@
 #!/usr/local/bin/python
 
 import sys
+import re
+import fileinput
 import os
 import shutil
 import subprocess
@@ -44,7 +46,7 @@ def build_under_bullseye(rundir, branch, covfile, full_path):
     subprocess.call(['/usr/bullseye/bin/cov01', '-0']) 
 
 def checkout(build_dir_snippet, p4_dir='/home/eserv/perforce/splunk',
-             depot='//qa-centos-amd64-05/splunk'):
+             depot='//qa-centos-amd32-01/splunk'):
     rundir = os.path.join(p4_dir, build_dir_snippet)
     sync_target = '/'.join([depot, build_dir_snippet, '...'])
     print sync_target
@@ -191,7 +193,7 @@ def isNumber(token):
 def main(argv):
     os.environ['SPLUNK_HOME'] = '/home/eserv/splunk'
     os.environ['SPLUNK_DB'] = '/home/eserv/splunk/var/lib/splunk'
-    os.environ['P4CLIENT'] = 'qa-centos-amd64-05'
+    os.environ['P4CLIENT'] = 'qa-centos-amd32-01'
     os.environ['PATH'] = os.environ['PATH'] + ':' + '/sbin'
     # To support multiple branch, default set to ace
     #branches_pool = {'bieber' : 'branches/bieber'}
@@ -231,6 +233,31 @@ def main(argv):
         # After this, we need to archive Splunk build
         proc = subprocess.Popen(['/bin/tar', 'czf', '/home/eserv/splunk_archive/splunk.tar.gz', '/home/eserv/splunk'], bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
         stdout, stderr = proc.communicate()
+        # Run new_test - forwarder mgmt
+        command = ['bash', '-c', 'source %s/bin/setSplunkEnv' % os.environ['SPLUNK_HOME']]
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+        proc.communicate()
+        os.chdir('/home/eserv/perforce/splunk/current/new_test')
+        command = ['bash', '-c', 'source /home/eserv/perforce/splunk/current/new_test/setTestEnv']
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
+        proc.communicate()
+        os.environ['PYTHONPATH'] = os.environ['PYTHONPATH'] + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
+        # Substitute conftest.py with install_from_archive
+        conf_path = os.path.join(rundir, 'new_test', 'tests', 'forwarder_mgmt', 'conftest.py')
+        for line in fileinput.input(conf_path, inplace=1):
+            if re.search('\w+\.(install_nightly)\(\w+.*\).*', line):
+                str_split = line.split('.')
+                str_split[1] = '.'
+                str_split.append('install_from_archive(\'/home/eserv/splunk_archive/splunk.tar.gz\')')
+                str_split.append('\n')
+                line = ''.join(str_split)
+            sys.stdout.write(line)
+        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarder_mgmt'
+        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py', '-v']
+        proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
+                         bufsize=0, stdin=subprocess.PIPE,
+                         stdout=None, stderr=None, close_fds=True)
+        proc.communicate()
         # Save splunk.version
         proc = subprocess.Popen(['%s %s' % (os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'version')], shell=True, bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
         stdout, stderr = proc.communicate()
@@ -293,21 +320,6 @@ def main(argv):
             if rc != 0:
                 print '%s tests return code is %s, %s %s %s' % (aTest, rc, stdout, stderr, timeout_value)
             print 'finish %s test' % aTest
-        # Run new_test - forwarder mgmt
-        command = ['bash', '-c', 'source %s/bin/setSplunkEnv' % os.environ['SPLUNK_HOME']]
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
-        proc.communicate()
-        os.chdir('/home/eserv/perforce/splunk/current/new_test')
-        command = ['bash', '-c', 'source /home/eserv/perforce/splunk/current/new_test/setTestEnv']
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE)
-        proc.communicate()
-        os.environ['PYTHONPATH'] = os.environ['PYTHONPATH'] + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
-        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarder_mgmt'
-        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py', '-v']
-        proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
-                         bufsize=0, stdin=subprocess.PIPE,
-                         stdout=None, stderr=None, close_fds=True)
-        proc.communicate()
 
         subprocess.call(['/usr/bullseye/bin/cov01', '-0']) 
         generate_reports(full_covfile, branch_path)
