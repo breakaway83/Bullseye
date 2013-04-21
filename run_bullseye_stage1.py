@@ -35,6 +35,10 @@ def build_under_bullseye(rundir, branch, covfile, full_path):
     # Record time duration
     time1 = datetime.now()
     subprocess.call(['cmake/build_and_ctest.py', '-vO'])
+    # Do some cleanup
+    subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'stop'])
+    subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'clean', 'all', '-f'])
+    subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'start'])
     time2 = datetime.now()
     delta = time2 - time1
     f = open(os.path.join(full_path, 'time_spent.log'), 'a')
