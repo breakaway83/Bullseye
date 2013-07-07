@@ -36,9 +36,10 @@ def build_under_bullseye(rundir, branch, covfile, full_path):
     time1 = datetime.now()
     subprocess.call(['cmake/build_and_ctest.py', '-vO'])
     # Do some cleanup
-    subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'stop'])
+    #subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'stop'])
+    print "Clean all after Ctest"
     subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'clean', 'all', '-f'])
-    subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'start'])
+    subprocess.call([os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'restart'])
     time2 = datetime.now()
     delta = time2 - time1
     f = open(os.path.join(full_path, 'time_spent.log'), 'a')
@@ -160,6 +161,21 @@ def main(argv):
         if x:
             sys.exit('Could not build contrib')
         build_under_bullseye(rundir, branch, full_covfile, full_path)
+
+        # Save splunk.version
+        kill_proc_and_release_port()
+        proc = subprocess.Popen(['%s %s %s' % (os.path.join(os.environ['SPLUNK_HOME'], \
+               'bin', 'splunk'), 'start', '--accept-license')], shell=True, bufsize=0, \
+               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        sudout, stderr = proc.communicate()
+        proc = subprocess.Popen(['%s %s' % (os.path.join(os.environ['SPLUNK_HOME'], 'bin', \
+               'splunk'), 'version')], shell=True, bufsize=0, stdin=subprocess.PIPE, \
+               stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        stdout, stderr = proc.communicate()
+        f = open(os.path.join(full_path, 'splunk.version.%s' % branch), 'w')
+        f.write(stdout)
+        f.close()
+
         # After this, we need to archive Splunk build
         os.chdir('/home/eserv')
         proc = subprocess.Popen(['/bin/tar', 'czf', '/home/eserv/splunk_archive/splunk.tar.gz', 'splunk'], bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)

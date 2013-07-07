@@ -153,6 +153,7 @@ def main(argv):
         full_covfile = os.path.join('/home/eserv/bullseye_reports', covfile)
         if 'COVFILE' not in os.environ:
             os.environ['COVFILE'] = full_covfile
+        print "COVFILE is %s in stage 2" % os.environ['COVFILE']
         #if os.path.exists(full_covfile):
         #    os.remove(full_covfile)
         rundir = os.path.join('/home/eserv/perforce/splunk', dirname)
@@ -171,9 +172,12 @@ def main(argv):
             str_list.pop(0)
             os.environ['PYTHONPATH'] = ":".join(str_list)
         if 'PYTHONPATH' in os.environ:
-            os.environ['PYTHONPATH'] = os.environ['PYTHONPATH'] + ":" + "/home/eserv/splunk/lib/python2.7/site-packages" + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
+            os.environ['PYTHONPATH'] = os.environ['PYTHONPATH'] + ":" + \
+                                       "/home/eserv/splunk/lib/python2.7/site-packages" \
+                                       + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
         else:
-            os.environ['PYTHONPATH'] = "/home/eserv/splunk/lib/python2.7/site-packages" + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
+            os.environ['PYTHONPATH'] = "/home/eserv/splunk/lib/python2.7/site-packages" \
+                                       + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
         print os.environ["PYTHONPATH"]
         # Substitute conftest.py with install_from_archive
         conf_path = os.path.join(rundir, 'new_test', 'tests', 'forwarder_mgmt', 'conftest.py')
@@ -186,17 +190,27 @@ def main(argv):
                 line = ''.join(str_split)
             sys.stdout.write(line)
         test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarder_mgmt'
-        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py', '-v']
+        #command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py', \
+        #                '-v', '--ignore=webdriver', '--num_of_forwarders=2']
+        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py \
+                        -v --ignore=webdriver --num_of_forwarders=2']
         proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
                          bufsize=0, stdin=subprocess.PIPE,
                          stdout=None, stderr=None, close_fds=True)
         proc.communicate()
         # Save splunk.version
-        proc = subprocess.Popen(['%s %s' % (os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk'), 'version')], shell=True, bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        stdout, stderr = proc.communicate()
-        f = open(os.path.join(full_path, 'splunk.version.%s' % branch), 'w')
-        f.write(stdout)
-        f.close()
+        #kill_proc_and_release_port()
+        #proc = subprocess.Popen(['%s %s %s' % (os.path.join(os.environ['SPLUNK_HOME'], \
+        #       'bin', 'splunk'), 'start', '--accept-license')], shell=True, bufsize=0, \
+        #       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        #sudout, stderr = proc.communicate()
+        #proc = subprocess.Popen(['%s %s' % (os.path.join(os.environ['SPLUNK_HOME'], 'bin', \
+        #       'splunk'), 'version')], shell=True, bufsize=0, stdin=subprocess.PIPE, \
+        #       stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        #stdout, stderr = proc.communicate()
+        #f = open(os.path.join(full_path, 'splunk.version.%s' % branch), 'w')
+        #f.write(stdout)
+        #f.close()
 
         # Need to update yaml file
         yaml_path = os.path.join(rundir, 'test', 'search', 'distributed')
