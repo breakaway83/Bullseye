@@ -24,15 +24,16 @@ def kill_proc(proc, timeout):
 
 def run_qa_test(run_dir, test_dir, timeout_sec, args_list):
     # Setup PYTHONPATH
+    print "setup PYTHONPATH"
     py_path1 = os.path.join(run_dir, 'test')
     py_path2 = os.path.join(run_dir, 'test', 'lib')
     py_path3 = os.path.join(run_dir, 'test', 'lib', 'pytest', 'plugin')
     os.environ['PYTHONPATH'] = py_path1 + ':' + py_path2 + ':' + py_path3
-    print os.environ['PYTHONPATH']
+    print "PYTHONPATH is: %s" % os.environ['PYTHONPATH']
     # Setup SPLUNK_DB
     splunkdb_path = os.path.join(os.environ['SPLUNK_HOME'], 'var', 'lib', 'splunk')
     os.environ['SPLUNK_DB'] = splunkdb_path
-    print os.environ['SPLUNK_DB']
+    print "SPLUNK_DB is %s" % os.environ['SPLUNK_DB']
     # Define splunk & py.test command path
     splunk_dir = os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'splunk')
     pytest_cmd = os.path.join(os.environ['SPLUNK_HOME'], 'bin', 'py.test')
@@ -49,16 +50,11 @@ def run_qa_test(run_dir, test_dir, timeout_sec, args_list):
     stdout, stderr = proc.communicate()
     timer.cancel()
     return proc.returncode, stdout, stderr, timeout["value"]
-    #x = p.wait()
-    #print 'run search standard test'
-    #print x
-    #subprocess.call(['/usr/bullseye/bin/cov01', '-0']) 
-    #return x
 
 def generate_reports(covfile, branch_path, 
                      report_dir='/home/eserv/bullseye_reports', 
                      output_dir='/home/eserv/bullseye_reports'):
-    #covfile = os.path.join(report_dir, 'bull.cov')
+    print "generate reports"
     html_file = os.path.join(branch_path, 'covbr.html')
     covbr_cmd = ' '.join(['/usr/bullseye/bin/covbr', '--file', covfile,
                           '--html'])
@@ -123,10 +119,11 @@ def isNumber(token):
     return True
 
 def main(argv):
+    print "======== run_bullseye_stage2.py ========"
     os.environ['SPLUNK_HOME'] = '/home/eserv/splunk'
     os.environ['SPLUNK_DB'] = '/home/eserv/splunk/var/lib/splunk'
-    #os.environ['P4CLIENT'] = 'qa-centos-amd32-01'
     os.environ['PATH'] = os.environ['PATH'] + ':' + '/sbin'
+    os.environ['JAVA_HOME'] = '/usr/java/jdk1.7.0_25'
     # To support multiple branch, default set to ace
     #branches_pool = {'bieber' : 'branches/bieber'}
     branches = {'current' : 'current'}
@@ -141,33 +138,24 @@ def main(argv):
         if os.path.isdir(os.path.join(dir, name)) and re.match('\d{4}-\d{2}-\d{2}-\d{2}_\d{2}', name):
             break
     full_path = os.path.join('/home/eserv/bullseye_reports', name)
-    #if os.path.exists(full_path):
-    #    shutil.rmtree(full_path)
-    #os.mkdir(full_path)
     for branch in branches:
-        print branch
+        print "branch is: %s" % branch
         branch_path = os.path.join(full_path, branch)
-        #os.mkdir(branch_path)
         dirname = branches[branch]
         covfile = '.'.join([branch, 'cov'])
         full_covfile = os.path.join('/home/eserv/bullseye_reports', covfile)
         if 'COVFILE' not in os.environ:
             os.environ['COVFILE'] = full_covfile
         print "COVFILE is %s in stage 2" % os.environ['COVFILE']
-        #if os.path.exists(full_covfile):
-        #    os.remove(full_covfile)
+        subprocess.call(['/usr/bullseye/bin/cov01', '-1'])
         rundir = os.path.join('/home/eserv/perforce/splunk', dirname)
-        print rundir
+        print "rundir is: %s " % rundir
 
         # Kill hung process on port 8000 & 8089
         kill_proc_and_release_port()
-        #if os.path.exists(os.environ['SPLUNK_HOME']):
-        #    shutil.rmtree(os.environ['SPLUNK_HOME'])
-        #os.mkdir(os.environ['SPLUNK_HOME'])
-        # After this, we need to archive Splunk build
         p_path = os.environ["PYTHONPATH"]
         str_list = p_path.split(":")
-        if '/home/eserv/splunk//lib' in str_list[0] or '/home/eserv/splunk/lib' in str_list[0]:
+        if '/home/eserv/splunk/lib' in str_list[0] or '/home/eserv/splunk/lib' in str_list[0]:
             str_list.append(str_list[0])
             str_list.pop(0)
             os.environ['PYTHONPATH'] = ":".join(str_list)
@@ -178,9 +166,10 @@ def main(argv):
         else:
             os.environ['PYTHONPATH'] = "/home/eserv/splunk/lib/python2.7/site-packages" \
                                        + ":" + "/home/eserv/perforce/splunk/current/new_test/lib/splunktest/rest/feedparser"
-        print os.environ["PYTHONPATH"]
+        print "PYTHONPATH is: %s " % os.environ["PYTHONPATH"]
         # Substitute conftest.py with install_from_archive
-        conf_path = os.path.join(rundir, 'new_test', 'tests', 'forwarder_mgmt', 'conftest.py')
+        print "substitute conftest.py with install_from_archive"
+        conf_path = os.path.join(rundir, 'new_test', 'tests', 'forwarder_mgmt', 'backend', 'conftest.py')
         for line in fileinput.input(conf_path, inplace=1):
             if re.search('\w+\.(install_nightly)\(\w+.*\).*', line):
                 str_split = line.split('.')
@@ -189,37 +178,50 @@ def main(argv):
                 str_split.append('\n')
                 line = ''.join(str_split)
             sys.stdout.write(line)
-        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarder_mgmt'
-        #command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py', \
-        #                '-v', '--ignore=webdriver', '--num_of_forwarders=2']
+        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarder_mgmt/backend'
+        print "run forwarder mgmt backend new_test"
         command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py \
                         -v --ignore=webdriver --num_of_forwarders=2']
         proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
                          bufsize=0, stdin=subprocess.PIPE,
                          stdout=None, stderr=None, close_fds=True)
         proc.communicate()
-        # Save splunk.version
-        #kill_proc_and_release_port()
-        #proc = subprocess.Popen(['%s %s %s' % (os.path.join(os.environ['SPLUNK_HOME'], \
-        #       'bin', 'splunk'), 'start', '--accept-license')], shell=True, bufsize=0, \
-        #       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        #sudout, stderr = proc.communicate()
-        #proc = subprocess.Popen(['%s %s' % (os.path.join(os.environ['SPLUNK_HOME'], 'bin', \
-        #       'splunk'), 'version')], shell=True, bufsize=0, stdin=subprocess.PIPE, \
-        #       stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        #stdout, stderr = proc.communicate()
-        #f = open(os.path.join(full_path, 'splunk.version.%s' % branch), 'w')
-        #f.write(stdout)
-        #f.close()
+        # Substitute conftest.py with install_from_archive in structured_data conftest.py
+        print "substitute conftest.py with install_from_archive in structured_data"
+        conf_path = os.path.join(rundir, 'new_test', 'tests', 'forwarding', 'structured_data', 'conftest.py')
+        for line in fileinput.input(conf_path, inplace=1):
+            if re.search('(splunk_indexer\.install_nightly)\(\w+.*\).*', line) or \
+               re.search('(splunk_single_instance\.install_nightly)\(\w+.*\).*', line):
+                str_split = line.split('.')
+                str_split[1] = '.'
+                str_split.append('install_from_archive(\'/home/eserv/splunk_archive/splunk.tar.gz\')')
+                str_split.append('\n')
+                line = ''.join(str_split)
+            sys.stdout.write(line)
+        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarding/structured_data'
+        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py \
+                        -v --branch=current']
+        proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
+                         bufsize=0, stdin=subprocess.PIPE,
+                         stdout=None, stderr=None, close_fds=True)
+        # Stop test execution in case it hangs
+        timeout = {"value" : False}
+        timer = Timer(39600, kill_proc, [proc, timeout])
+        timer.start()
+        stdout, stderr = proc.communicate()
+        timer.cancel()
+        # Release bound port 8000 and 8089, otherwise test hangs !!!
+        kill_proc_and_release_port()
 
         # Need to update yaml file
         yaml_path = os.path.join(rundir, 'test', 'search', 'distributed')
         yaml_file = 'bamboo-self-all.yml'
         print "yaml_path=%s" % yaml_path
         updateYamlFile(yaml_path, yaml_file)
-
-        #os.environ['COVFILE'] = covfile
-        print "bullseye: %s" % os.environ['COVFILE']
+        # Make sure that COVFILE exists up to this moment
+        if 'COVFILE' not in os.environ:
+            os.environ['COVFILE'] = full_covfile
+        print "COVFILE is %s in stage 2" % os.environ['COVFILE']
         subprocess.call(['/usr/bullseye/bin/cov01', '-1'])
         tests = {
                  #'search standard' : os.path.join(rundir, 'test', 'search', 'standard'),
