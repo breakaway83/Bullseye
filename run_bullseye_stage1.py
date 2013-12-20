@@ -53,7 +53,7 @@ def build_under_bullseye(rundir, branch, covfile, full_path):
     subprocess.call(['/usr/bullseye/bin/cov01', '-0']) 
 
 def checkout(build_dir_snippet, p4_dir='/home/eserv/perforce/splunk',
-             depot='//qa-centos-amd64-05/splunk'):
+             depot='//qa-centos63-1/splunk'):
     rundir = os.path.join(p4_dir, build_dir_snippet)
     sync_target = '/'.join([depot, build_dir_snippet, '...'])
     print "sunc target is: %s" % sync_target
@@ -127,11 +127,11 @@ def isNumber(token):
 def main(argv):
     os.environ['SPLUNK_HOME'] = '/home/eserv/splunk'
     os.environ['SPLUNK_DB'] = '/home/eserv/splunk/var/lib/splunk'
-    os.environ['P4CLIENT'] = 'qa-centos-amd64-05'
+    os.environ['P4CLIENT'] = 'qa-centos63-1'
     os.environ['PATH'] = os.environ['PATH'] + ':' + '/sbin'
     os.environ['JAVA_HOME'] = '/usr/java/jdk1.7.0_25'
     # To support multiple branch, default set to ace
-    #branches_pool = {'bieber' : 'branches/bieber'}
+    #branches = {'si-staging' : 'branches/si-staging'}
     branches = {'current' : 'current'}
     #if len(argv) > 0:
     #    if argv[0][0:8] == "-branch=":
@@ -174,7 +174,7 @@ def main(argv):
         # Save splunk.version
         kill_proc_and_release_port()
         proc = subprocess.Popen(['%s %s %s' % (os.path.join(os.environ['SPLUNK_HOME'], \
-               'bin', 'splunk'), 'start', '--accept-license')], shell=True, bufsize=0, \
+               'bin', 'splunk'), 'start', '--accept-license --answer-yes --auto-ports')], shell=True, bufsize=0, \
                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
         sudout, stderr = proc.communicate()
         print "record splunk version"
@@ -189,6 +189,8 @@ def main(argv):
         # After this, we need to archive Splunk build
         os.chdir('/home/eserv')
         print "save off a instrumented splunk instance"
+        if not os.path.exists('/home/eserv/splunk_archive'):
+            os.mkdir('/home/eserv/splunk_archive')
         proc = subprocess.Popen(['/bin/tar', 'czf', '/home/eserv/splunk_archive/splunk.tar.gz', 'splunk'], \
                bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
         stdout, stderr = proc.communicate()

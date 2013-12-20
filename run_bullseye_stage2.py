@@ -12,6 +12,7 @@ import signal
 import string
 from threading import Timer
 import yaml
+import pdb
 
 def kill_proc(proc, timeout):
     timeout["value"] = True
@@ -125,7 +126,7 @@ def main(argv):
     os.environ['PATH'] = os.environ['PATH'] + ':' + '/sbin'
     os.environ['JAVA_HOME'] = '/usr/java/jdk1.7.0_25'
     # To support multiple branch, default set to ace
-    #branches_pool = {'bieber' : 'branches/bieber'}
+    #branches = {'si-staging' : 'branches/si-staging'}
     branches = {'current' : 'current'}
     #if len(argv) > 0:
     #    if argv[0][0:8] == "-branch=":
@@ -201,6 +202,41 @@ def main(argv):
         test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/forwarding/structured_data'
         command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py \
                         -v --branch=current']
+        proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
+                         bufsize=0, stdin=subprocess.PIPE,
+                         stdout=None, stderr=None, close_fds=True)
+        # Stop test execution in case it hangs
+        timeout = {"value" : False}
+        timer = Timer(39600, kill_proc, [proc, timeout])
+        timer.start()
+        stdout, stderr = proc.communicate()
+        timer.cancel()
+        # Release bound port 8000 and 8089, otherwise test hangs !!!
+        kill_proc_and_release_port()
+
+        # Run clustering search test suite
+        print "Run clustering search test suite"
+        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/clustering/search'
+        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py \
+                        -v test_batch_mode.py --conf-file=/home/eserv/perforce/splunk/current/new_test/config/clustering/_global-conf.yml \
+                        --branch=current --new_password=notchangeme --local_build=/home/eserv/splunk']
+        proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
+                         bufsize=0, stdin=subprocess.PIPE,
+                         stdout=None, stderr=None, close_fds=True)
+        #pdb.set_trace()
+        # Stop test execution in case it hangs
+        timeout = {"value" : False}
+        timer = Timer(39600, kill_proc, [proc, timeout])
+        timer.start()
+        stdout, stderr = proc.communicate()
+        timer.cancel()
+        # Release bound port 8000 and 8089, otherwise test hangs !!!
+        kill_proc_and_release_port()
+        # Run clustering framework test suite
+        print "Run clustering framework test suite"
+        test_dir = '/home/eserv/perforce/splunk/current/new_test/tests/clustering/framework'
+        command_list = ['python /home/eserv/perforce/splunk/current/new_test/bin/pytest/pytest.py \
+                        -v --branch=current --new_password=notchangeme --local_build=/home/eserv/splunk']
         proc = subprocess.Popen(command_list, shell=True, cwd=test_dir,
                          bufsize=0, stdin=subprocess.PIPE,
                          stdout=None, stderr=None, close_fds=True)

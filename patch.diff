@@ -1,0 +1,31 @@
+--- //splunk/current/new_test/tests/clustering/search/test_batch_mode.py	2013-12-10 19:29:12.000000000 -0800
++++ /home/eserv/perforce/splunk/current/new_test/tests/clustering/search/test_batch_mode.py	2013-12-10 19:29:12.000000000 -0800
+@@ -1,15 +1,18 @@
+ import helmut
+ import logging
+ import time
++import pytest
+ from splunktest.framework.FrameworkTest import ClusteringTest
+ from splunktest.util.loggen import TcpLogGen
++from splunk.models.clustering import ClusterMasterPeer, ClusterSearchheadInfo
++from conftest import update_master_conf, apply_bundle
+ 
+-
++@pytest.mark.usefixtures("cluster")
+ class TestBatchMode(ClusteringTest):
+     logger = logging.getLogger()
+     
+-    def test_batch_mode_retry(self, nightlysplunk):
+-        cluster = self.new_cluster()
++    def test_batch_mode_retry(self, cluster):
++        self.cluster = cluster
+         port = 9001
+         start_date = time.localtime(time.time() - 31536000)
+         for peer in cluster.slaves:
+@@ -25,4 +28,4 @@
+         cluster.slaves[0].execute('start')
+         job.wait()
+         assert int(job.get_results()[0]['dc(_raw)']) == 3000000
+-        
+\ No newline at end of file
++        
